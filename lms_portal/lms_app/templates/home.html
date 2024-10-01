@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+{% extends "index.html" %}
+{% load static %}
+
+{% block main_content %}
+<main role="main">
+<div class="jumbotron">
+    <div class="container text-light">
+        <img src ="{%static '/Home page lib logo.jpeg' %}" class="rounded float.start" alt="LMS" height="100" style="margin-right: 2px;">
+        <h1 class ="display-4"> HELLO, READER!!</h1>
+        <p>Welcome to the Bookworm Palace!! This portal provides you with access to our extensive collection of books and oter reading material to meet your specific needs! ENJOY! </p>
+        <button type="button" class="btn btn-primary">Browse Our Collection</button> 
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+      <div class="col">
+        <h2>Why Reading Is Important</h2>
+        <p>Relevant Content!</p>
+      </div>
+      <div class="col">
+        <h2>Key Benefits</h2>
+        <ul>
+            <li>Benefit 1</li>
+            <li>Benefit 2</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h2>Thought For The Day</h2>
+        <p>Relevant Content!</p>
+      </div>
+    </div>
+    <hr>
+  </div>
+</main>
+
+  <footer class="container">
+    <p>&copy;Bookworms Library 2024</p>
+  </footer>
+
+{% endblock %}

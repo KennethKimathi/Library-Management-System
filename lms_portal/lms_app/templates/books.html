@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+{% extends "index.html" %}
+{% load static %}
+
+{% block main_content %}
+<div class="container-flex text-center justify-content-center align-items-center" style="padding-top:10px; padding-bottom: 20px; margin-top: 10px; vertical-align:middle;">
+    <div class="row justify-content-center align-middle" style="margin-top: 10px; height:60px;">
+        <div class="col-md-4 text-light" style="background:#4B088A;">
+            <h4 style="margin-top:15px">Add Book</h4>
+        </div>
+        <div class="col-md-8">
+            <h4>Find Book</h4>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="container" style="overflow-y:auto;height: 600px;background:#CEECF5">
+                <form class="d-flex" action="/books/add" method="POST">
+                    {% csrf_token %}
+                    <table class="table" style="margin-top: 20px">
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle; padding-left: 15px;">Title:</td>
+                            <td><input type="text" class="form-control" name="book_title" required></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle; padding-left: 15px;">Author:</td>
+                            <td><input type="text" class="form-control" name="book_author" required></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle; padding-left: 15px;">Year Published:</td>
+                            <td><input type="number" class="form-control" name="book_year" required></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle; padding-left: 15px;">ISBN:</td>
+                            <td><input type="text" class="form-control" name="book_isbn" required></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle; padding-left: 15px;">Description:</td>
+                            <td><textarea class="form-control" name="book_description" required></textarea></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle; padding-left: 15px;">Copies:</td>
+                            <td><input class="form-control" type="number" name="book_copies" min="1" value="1" required></td>
+                        </tr>
+                        <tr>
+                            <td colspan="2"><button class="btn btn-primary" type="submit">Save</button></td>
+                        </tr>
+                    </table>
+                </form>
+                <ul style="text-align: left; vertical-align: middle; padding-left: 15px;">
+                    <li><small>Ensure accuracy before adding a book.</small></li>
+                    <li><small>Duplicating books is discouraged.</small></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="row">
+                <nav class="navbar bg-body-light" style="padding-top: 20px; padding-bottom: 20px;">
+                    <div class="container fluid justify-content-center align-items-center">
+                        <form class="d-flex" role="search" action="{% url 'search_books' %}" method="GET">
+                            <input class="form-control me-2" type="search" name="query" placeholder="Find Book" aria-label="Search">
+                            <button class="btn btn-outline-primary" type="submit">Search</button>
+                        </form>
+                    </div>
+                </nav>
+            </div>
+
+            <div class="row" style="margin-top: 20px;">
+                <p>Currently, {{ books|length }} books are available!</p>
+            </div>
+
+            <div class="row" style="margin-top: 20px;">
+                <div class="container" style="overflow-y:auto;height:400px">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <td>No</td>
+                                <td>Title</td>
+                                <td>Author</td>
+                                <td>Year</td>
+                                <td>ISBN</td>
+                                <td>Copies</td>
+                                <td>Action</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for book in books %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ book.title }}</td>
+                                    <td>{{ book.author }}</td>
+                                    <td>{{ book.book_year }}</td>
+                                    <td>{{ book.isbn }}</td>
+                                    <td>{{ book.copies }}</td>
+                                    <td>
+                                        <button 
+                                            class="btn btn-primary" 
+                                            onclick="toggleBag('{{ book.id }}')"
+                                            id="bag-btn-{{ book.id }}">
+                                            Add to Bag
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="7">No books found.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const csrftoken = '{{ csrf_token }}'; // Get CSRF token from template context
+
+    function toggleBag(bookId) {
+        let btn = document.getElementById('bag-btn-' + bookId);
+        
+        
+        if (btn.innerText === 'Add to Bag') {
+            btn.innerText = 'Remove';
+            btn.classList.remove('btn-primary'); 
+            btn.classList.add('btn-danger'); 
+            
+            fetch(`/books/add_to_bag/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken, 
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.error('Failed to add book to bag');
+                } else {
+
+                    updateBagUI(bookId, 'add');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+
+        } else {
+            btn.innerText = 'Add to Bag';
+            btn.classList.remove('btn-danger'); 
+            btn.classList.add('btn-primary'); 
+            
+            fetch(`/books/remove_from_bag/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken, 
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.error('Failed to remove book from bag');
+                } else {
+                    
+                    updateBagUI(bookId, 'remove');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    }
+
+    function updateBagUI(bookId, action) {
+        const bagList = document.getElementById('bag-books');
+        const bookTitle = document.querySelector(`#bag-btn-${bookId}`).closest('tr').children[1].innerText; // Get title from the table
+        const bookAuthor = document.querySelector(`#bag-btn-${bookId}`).closest('tr').children[2].innerText; // Get author from the table
+
+        if (action === 'add') {
+            const li = document.createElement('li');
+            li.classList.add('list-group-item');
+            li.innerHTML = `${bookTitle} by ${bookAuthor}
+                <button class="btn btn-sm btn-danger float-right" onclick="removeFromBag('${bookId}')" id="remove-btn-${bookId}">Remove</button>`;
+            bagList.appendChild(li);
+        } else if (action === 'remove') {
+            const removeButton = document.getElementById(`remove-btn-${bookId}`);
+            if (removeButton) {
+                removeButton.closest('li').remove(); // Remove the list item
+            }
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+{% extends "index.html" %}
+{% load static %}
+
+{% block main_content %}
+<div class="container-flex text-center justify-content-center align-items-center" style="padding-top:10px; padding-bottom: 20px; margin-top: 10px;">
+    <div class="row justify-content-center" style="margin-top: 10px;height:60px;">
+        <div class="col-md-4 text-light" style="background:#4B088A;">
+            <h4 style="margin-top:15px">My Bag</h4>
+        </div>
+        <div class="col-md-8">
+            <h4>Borrow Books</h4>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Books in Bag Section -->
+        <div class="col-md-6">
+            <div class="container" style="overflow-y:auto;height: 600px;background:#CEECF5">
+                <h5 class="text-left" style="padding: 15px;">Books in Bag</h5>
+                <ul id="bag-books" class="list-group list-group-flush" style="text-align: left; padding-left: 15px;">
+                    {% for book in bag_books %}
+                        <li class="list-group-item">
+                            {{ book.title }} by {{ book.author }}
+                            <button 
+                                class="btn btn-sm btn-danger float-right" 
+                                onclick="removeFromBag('{{ book.id }}')" 
+                                id="remove-btn-{{ book.id }}">
+                                Remove
+                            </button>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item">No books in bag.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Borrower Details and Borrowing Information -->
+        <div class="col-md-6">
+            <div class="container" style="background:#CEECF5; padding: 20px;">
+                <h5 class="text-left">Borrower Details</h5>
+                <form method="POST" action="/mybag/">
+                    {% csrf_token %}
+                    <table class="table">
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle;">Reader ID:</td>
+                            <td><input type="text" class="form-control" id="reader_id" name="reader_id"></td>
+                            <td><button class="btn btn-primary" type="submit">Search</button></td>
+                        </tr>
+                    </table>
+
+                    <div id="reader-details" style="margin-top: 10px;">
+                        {% if reader %}
+                            <p>Name: {{ reader.reader_name }}</p>
+                            <p>Reader ID: {{reader.reader_id}}</p>
+                            <p>Contact: {{ reader.reader_contact }}</p>
+                            <p>Address: {{ reader.reader_address }}</p>
+                            <p>Account Balance: Ksh {{ reader.account_bal }}</p>
+                        {% else %}
+                            <p>No reader found. Please search by Reader ID.</p>
+                        {% endif %}
+                    </div>
+                </form>
+
+                <h5 class="text-left">Borrowing Information</h5>
+                <form method="POST" action="/checkout/">
+                    {% csrf_token %}
+                    <input type="hidden" id="reader_id" name="reader_id" value="{{ reader.reader_id }}">
+                    <input type="hidden" id="csrf_token" value="{{ csrf_token }}">
+                    <table class="table">
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle;">Borrow Date:</td>
+                            <td><input type="date" class="form-control" id="borrow_date" name="borrow_date" required></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: left; vertical-align: middle;">Return Date:</td>
+                            <td><input type="date" class="form-control" id="return_date" name="return_date" required></td>
+                        </tr>
+                    </table>
+
+                    <input type="hidden" name="book_ids" id="book_ids" value="">
+                    <button class="btn btn-success" type="submit" style="margin-top: 15px;">Checkout</button>
+                </form>
+
+                <div id="charge-calculation" style="margin-top: 15px;">
+                    <!-- The charges, warnings, and balance checks will appear here after the calculation -->
+                </div>
+            </div>
+        </div>     
+    </div>
+</div>
+
+<script>
+
+// Function to fetch CSRF token from cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Retrieving the CSRF token
+const csrftoken = getCookie('csrftoken');
+// Function to remove book from the bag (remains the same as original)
+function removeFromBag(bookId) {
+    let btn = document.getElementById('remove-btn-' + bookId);
+    let listItem = btn.closest('li');
+
+    fetch(`/mybag/remove_from_bag/${bookId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken,
+        },
+        body: JSON.stringify({ book_id: bookId })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            listItem.remove();
+            alert('Book removed from bag');
+        } else {
+            alert(data.message || 'Failed to remove the book from the bag.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while removing the book.');
+    });
+}
+</script>
+{% endblock %}
