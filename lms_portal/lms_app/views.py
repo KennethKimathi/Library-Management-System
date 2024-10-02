@@ -7,6 +7,9 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import *
 from django.contrib import messages
 import logging
+from decimal import Decimal
+from django.utils import timezone
+
 
 
 # Create your views here.
@@ -60,12 +63,13 @@ def search_books(request):
 def returns(request):
     query = request.GET.get('query', '')
     if query:
-        # Filter records by reader_id or reader_name
+        # Filter records by reader_id or reader_name, and order by checkout_id in decreasing order
         checkout_records = CheckoutRecord.objects.filter(
-            models.Q(reader_id__icontains=query) | models.Q(reader_name__icontains=query)
-        )
+            models.Q(reader_id__icontains=query) | models.Q(reader_name__icontains(query))
+        ).order_by('-checkout_id')
     else:
-        checkout_records = CheckoutRecord.objects.all()  # Get all records if no query
+        # Get all records and order by checkout_id in decreasing order
+        checkout_records = CheckoutRecord.objects.all().order_by('-checkout_id')
 
     return render(request, 'returns.html', {
         'checkout_records': checkout_records,
@@ -139,13 +143,14 @@ def checkout(request):
         borrow_date = request.POST['borrow_date']
         return_date = request.POST['return_date']
 
+        # Try to fetch reader, handle error if not found
         try:
             reader = Reader.objects.get(reader_id=reader_id)
         except Reader.DoesNotExist:
             messages.error(request, "Reader not found.")
             return redirect('/mybag/')
 
-        # Convert dates
+        # Convert and validate borrow and return dates
         try:
             borrow_date = datetime.strptime(borrow_date, "%Y-%m-%d").date()
             return_date = datetime.strptime(return_date, "%Y-%m-%d").date()
@@ -153,14 +158,13 @@ def checkout(request):
             messages.error(request, "Invalid date format.")
             return redirect('/mybag/')
 
-        # Validate that return date is after borrow date
         if return_date <= borrow_date:
             messages.error(request, "Return date must be after borrow date.")
             return redirect('/mybag/')
 
-        # Calculate the borrowing period
+        # Calculate borrowing days and total charge
         borrowing_days = (return_date - borrow_date).days
-        charge_per_day = 0.50
+        charge_per_day = Decimal('3.00')
 
         # Get the books in the bag
         bag = request.session.get('bag', [])
@@ -170,58 +174,80 @@ def checkout(request):
             messages.error(request, "No books in the bag to checkout.")
             return redirect('/mybag/')
 
-        # Calculate total charges
         total_charge = len(bag_books) * borrowing_days * charge_per_day
 
-        # Check if the reader's account balance is sufficient
+        # Check if account balance is below 500
         if reader.account_bal < 500:
             messages.warning(request, "Your account balance is below Ksh.500. Please top-up to continue.")
             return redirect('/mybag/')
 
-        # Check if the balance is sufficient to cover the borrowing charges
+        # Check if the balance can cover the total charge
         if reader.account_bal < total_charge:
             messages.error(request, f"Insufficient balance to cover borrowing charges. You need Ksh.{total_charge}.")
             return redirect('/mybag/')
 
-        # Proceed with checkout
+        # Proceed with checkout logic
         try:
-            # Create a checkout record
+            # Create the checkout record
             checkout_record = CheckoutRecord.objects.create(
                 reader_id=reader_id,
                 reader_name=reader.reader_name,
                 borrow_date=borrow_date,
                 return_date=return_date,
                 num_books=len(bag_books),
-                book_list=', '.join(book.title for book in bag_books),
                 total_charge=total_charge
             )
-            
-            # Update book inventory and save book details to the checkout record
+
+            # Update book copies and save book details to checkout record
             book_titles = []
             for book in bag_books:
                 if book.copies > 0:
-                    book.copies -= 1  # Reduce the number of available copies
-                    book.save()  # Save the changes to the database
+                    book.copies -= 1  # Reduce available copies
+                    book.save()
                     book_titles.append(book.title)
                 else:
                     messages.warning(request, f"{book.title} is currently unavailable.")
                     return redirect('/mybag/')
 
-            # Save the list of books to the checkout record
+            # Save the updated book list to checkout record
             checkout_record.book_list = ', '.join(book_titles)
             checkout_record.save()
 
             # Deduct the total charge from the reader's account balance
             reader.account_bal -= total_charge
-            reader.save()  # Save the changes to the reader's account balance
+            reader.save()  # Update the reader's balance in the database
 
-            # Clear the bag
+            # Clear the session bag after successful checkout
             request.session['bag'] = []
 
+            # Send success message and redirect to returns page
             messages.success(request, "Checkout completed successfully!")
-            return redirect('/returns/')  # Redirect to the returns page after successful checkout
+            return redirect('/returns/')
 
         except Exception as e:
             logger.error(f"Checkout error: {e}")
             messages.error(request, "An error occurred during checkout. Please try again.")
             return redirect('/mybag/')
+        
+def process_return(request, checkout_id):
+    if request.method == 'POST':
+        checkout_record = get_object_or_404(CheckoutRecord, checkout_id=checkout_id)
+
+        # Check if the book is overdue
+        if timezone.now().date() > checkout_record.return_date:
+            checkout_record.is_overdue = True
+
+        # Update return status
+        if not checkout_record.return_status == 'returned':
+            # Increment the number of available copies for each book
+            book_titles = checkout_record.book_list.split(', ')
+            for title in book_titles:
+                book = Book.objects.get(title=title)
+                book.copies += 1
+                book.save()
+
+            checkout_record.return_status = 'returned'
+            checkout_record.save()
+
+        return redirect('/returns/')
+

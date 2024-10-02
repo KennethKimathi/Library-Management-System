@@ -31,5 +31,6 @@ urlpatterns = [
     path('books/add_to_bag/<int:book_id>/', add_to_bag, name='add_to_bag'),  
     path('mybag/remove_from_bag/<int:book_id>/', remove_from_bag, name='remove_from_bag'),  
     path('checkout/', checkout, name='checkout'),
-    path('readers/reader_search/', reader_search, name='reader_search')
+    path('readers/reader_search/', reader_search, name='reader_search'),
+    path('returns/process/<int:checkout_id>/', process_return, name='process_return'),
 ]

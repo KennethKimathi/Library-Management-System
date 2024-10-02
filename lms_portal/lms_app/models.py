@@ -34,6 +34,8 @@ class CheckoutRecord(models.Model):
     class Meta:
         verbose_name = "CheckoutRecord"
         verbose_name_plural = "CheckoutRecords"
-
     def __str__(self):
         return f'CheckoutRecord {self.checkout_id}'
+    
+    return_status = models.CharField(max_length=10, default='pending')  # can be 'pending', 'returned'
+    is_overdue = models.BooleanField(default=False)

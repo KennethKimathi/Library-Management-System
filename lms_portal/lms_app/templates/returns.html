@@ -33,6 +33,7 @@
                             <th>Borrow Date</th>
                             <th>Return Date</th>
                             <th>Total Charge (Ksh)</th>
+                            <th>Return</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -46,10 +47,23 @@
                             <td>{{ record.borrow_date }}</td>
                             <td>{{ record.return_date }}</td>
                             <td>{{ record.total_charge }}</td>
+                            <td>
+                                <form method="POST" action="{% url 'process_return' record.checkout_id %}">
+                                    {% csrf_token %}
+                                    <button class="btn 
+                                        {% if record.return_status == 'returned' %} btn-success {% elif record.is_overdue %} btn-danger {% else %} btn-primary {% endif %}" 
+                                        type="submit">
+                                        {% if record.return_status == 'returned' %} Returned 
+                                        {% elif record.is_overdue %} Overdue 
+                                        {% else %} Return 
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7">No return records found.</td>
+                            <td colspan="9">No return records found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
