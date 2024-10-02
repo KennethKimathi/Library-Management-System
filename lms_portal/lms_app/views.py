@@ -65,7 +65,7 @@ def returns(request):
     if query:
         # Filter records by reader_id or reader_name, and order by checkout_id in decreasing order
         checkout_records = CheckoutRecord.objects.filter(
-            models.Q(reader_id__icontains=query) | models.Q(reader_name__icontains(query))
+            models.Q(reader__reader_id__icontains=query) | models.Q(reader__name__icontains=query)
         ).order_by('-checkout_id')
     else:
         # Get all records and order by checkout_id in decreasing order
